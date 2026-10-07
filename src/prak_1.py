@@ -4,6 +4,56 @@ import argparse
 import tkinter as tk
 from tkinter import scrolledtext
 
+class VirtualFileSystem:
+    """Виртуальная файловая система в оперативной памяти (Этап 3)."""
+    def __init__(self, root_dir_path):
+        self.fs = {}  # {'/path': {'files': {'name': 'data'}, 'dirs': {'name'}}}
+        self.current_dir = "/"
+        self.root_name = os.path.basename(os.path.abspath(root_dir_path)) or "VFS"
+        self._load_from_disk(root_dir_path)
+
+    def _load_from_disk(self, root_path):
+        """Сканирует реальную директорию в память."""
+        if not os.path.exists(root_path) or not os.path.isdir(root_path):
+            self.fs["/"] = {"files": {}, "dirs": set()}
+            return
+        root_path = os.path.abspath(root_path)
+        for root, dirs, files in os.walk(root_path):
+            rel = os.path.relpath(root, root_path)
+            v_path = "/" if rel == "." else "/" + rel.replace(os.sep, "/")
+            if v_path not in self.fs:
+                self.fs[v_path] = {"files": {}, "dirs": set()}
+            for d in dirs:
+                self.fs[v_path]["dirs"].add(d)
+            for f in files:
+                self._read_file_to_vfs(v_path, os.path.join(root, f), f)
+
+    def _read_file_to_vfs(self, v_path, real_path, filename):
+        """Вспомогательный метод безопасного чтения файла."""
+        try:
+            with open(real_path, 'r', encoding='utf-8', errors='ignore') as f:
+                self.fs[v_path]["files"][filename] = f.read()
+        except Exception:
+            self.fs[v_path]["files"][filename] = ""
+
+    def _resolve_path(self, path):
+        """Преобразует путь в канонический виртуальный абсолютный путь."""
+        if path.startswith("/"):
+            tokens = path.split("/")
+        else:
+            tokens = self.current_dir.split("/") + path.split("/")
+        resolved = []
+        for token in tokens:
+            if token == "" or token == ".":
+                continue
+            if token == "..":
+                if resolved:
+                    resolved.pop()
+            else:
+                resolved.append(token)
+        return "/" + "/".join(resolved)
+
+
 class ShellEmulatorGUI:
     """Графический интерфейс и REPL-обработчик ."""
     def __init__(self, root, vfs, prompt, script_path):
