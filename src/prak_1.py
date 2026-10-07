@@ -11,18 +11,18 @@ class ShellEmulatorGUI:
         self.vfs = vfs
         self.prompt = prompt
         self.script_path = script_path
-        
+
         self.root.title(f"Shell Emulator - VFS: {self.vfs.root_name}")
         self.root.geometry("800x500")
-        
+
         self.text_area = scrolledtext.ScrolledText(
-            root, wrap=tk.WORD, bg="black", fg="white", 
+            root, wrap=tk.WORD, bg="black", fg="white",
             insertbackground="white", font=("Courier", 12)
         )
         self.text_area.pack(fill=tk.BOTH, expand=True)
         self.text_area.bind("<Return>", self.handle_enter)
         self.text_area.bind("<Key>", self.restrict_cursor)
-        
+
         self.insert_prompt()
         if self.script_path:
             self.root.after(100, self.run_start_script)
@@ -64,7 +64,7 @@ class ShellEmulatorGUI:
         except Exception:
             self.text_area.insert(tk.END, "shell: syntax error\n")
             return "error"
-        
+
         cmd_map = {
             "exit": lambda a: True, "pwd": self._cmd_pwd,
             "ls": self._cmd_ls, "cd": self._cmd_cd,
@@ -75,3 +75,45 @@ class ShellEmulatorGUI:
             return cmd_map[cmd](args)
         self.text_area.insert(tk.END, f"{cmd}: command not found\n")
         return "error"
+
+
+    def run_start_script(self):
+        """Выполнение стартового скрипта с остановкой по ошибке (Этап 2)."""
+        if not os.path.exists(self.script_path):
+            self.text_area.insert(tk.END, f"Script error: {self.script_path} not found.\n")
+            self.insert_prompt()
+            return
+        with open(self.script_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            self.text_area.insert(tk.END, line + "\n")
+            result = self.execute_command(line)
+            if result == "error":
+                self.text_area.insert(tk.END, "Script aborted due to error\n")
+                break
+            elif result is True:
+                self.root.destroy()
+                return
+        self.insert_prompt()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Shell Emulator Configuration")
+    parser.add_argument("--vfs", required=True, help="Path to physical VFS root")
+    parser.add_argument("--prompt", default="[user@vfs {dir}]$ ", help="Prompt string")
+    parser.add_argument("--script", default=None, help="Startup script path")
+    args = parser.parse_args()
+    print("=== DEBUG STARTUP PARAMETERS ===")
+    print(f"VFS Path: {args.vfs}\nPrompt Format: {args.prompt}\nScript: {args.script}")
+    print("================================")
+    vfs = VirtualFileSystem(args.vfs)
+    root = tk.Tk()
+    app = ShellEmulatorGUI(root, vfs, args.prompt, args.script)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
