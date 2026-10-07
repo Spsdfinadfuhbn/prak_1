@@ -126,6 +126,64 @@ class ShellEmulatorGUI:
         self.text_area.insert(tk.END, f"{cmd}: command not found\n")
         return "error"
 
+    def _cmd_pwd(self, args):
+        """Команда pwd (Этап 4)."""
+        self.text_area.insert(tk.END, f"{self.vfs.current_dir}\n")
+        return False
+
+    def _cmd_ls(self, args):
+        """Команда ls (Этап 4)."""
+        t = self.vfs.current_dir if not args else self.vfs._resolve_path(args[0])
+        if t in self.vfs.fs:
+            d = sorted(list(self.vfs.fs[t]["dirs"]))
+            f = sorted(list(self.vfs.fs[t]["files"].keys()))
+            out = "  ".join(d + f)
+            if out:
+                self.text_area.insert(tk.END, f"{out}\n")
+            return False
+        self.text_area.insert(tk.END, f"ls: {args[0]}: No such directory\n")
+        return "error"
+
+    def _cmd_cd(self, args):
+        """Команда cd (Этап 4)."""
+        t = "/" if not args else self.vfs._resolve_path(args[0])
+        if t in self.vfs.fs:
+            self.vfs.current_dir = t
+            return False
+        self.text_area.insert(tk.END, f"cd: {args[0]}: No such directory\n")
+        return "error"
+
+    def _parse_tail_args(self, args):
+        """Парсинг аргументов tail."""
+        lines, file_idx = 10, 0
+        if args[0] == "-n" and len(args) > 1:
+            try:
+                lines = int(args[1])
+                file_idx = 2
+            except ValueError:
+                return None, None
+        if file_idx >= len(args):
+            return None, None
+        return lines, args[file_idx]
+
+    def _cmd_tail(self, args):
+        """Команда tail (Этап 4)."""
+        if not args:
+            self.text_area.insert(tk.END, "tail: missing file operand\n")
+            return "error"
+        lines, filename = self._parse_tail_args(args)
+        if lines is None:
+            self.text_area.insert(tk.END, "tail: invalid arguments\n")
+            return "error"
+        path = self.vfs._resolve_path(filename)
+        p_dir, f_name = "/".join(path.split("/")[:-1]) or "/", path.split("/")[-1]
+        if p_dir in self.vfs.fs and f_name in self.vfs.fs[p_dir]["files"]:
+            content = self.vfs.fs[p_dir]["files"][f_name].splitlines()
+            res = content[-lines:]
+            self.text_area.insert(tk.END, "\n".join(res) + ("\n" if res else ""))
+            return False
+        self.text_area.insert(tk.END, f"tail: {filename}: No such file\n")
+        return "error"
 
     def run_start_script(self):
         """Выполнение стартового скрипта с остановкой по ошибке (Этап 2)."""
