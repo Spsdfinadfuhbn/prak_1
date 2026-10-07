@@ -251,6 +251,7 @@ class ShellEmulatorGUI:
         src, dst = self.vfs._resolve_path(args[0]), self.vfs._resolve_path(args[1])
         src_p, src_n = "/".join(src.split("/")[:-1]) or "/", src.split("/")[-1]
 
+
         if src_p in self.vfs.fs and src_n in self.vfs.fs[src_p]["files"]:
             if self._move_file(src, dst, src_p, src_n):
                 self.text_area.insert(tk.END, "mv: invalid destination\n")
